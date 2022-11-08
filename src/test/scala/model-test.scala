@@ -5,15 +5,21 @@ import org.scalatest.matchers.*
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Gen
 
-class ModlTest extends AnyFlatSpec with must.Matchers with ScalaCheckPropertyChecks {
+class ModelTest extends AnyFlatSpec with must.Matchers with ScalaCheckPropertyChecks {
 
-  val rowGen = Gen.chooseNum(1, 9)
+  val rowGen = Gen.chooseNum(0, 8)
   val colGen = rowGen
 
   val coordGen = for {
     row <- rowGen
     col <- colGen
   } yield Coord(row, col)
+
+  val tileValueGen = Gen.chooseNum(1, 9)
+  val solvedTileGen = for {
+    coord <- coordGen
+    value <- tileValueGen
+  } yield Tile(coord.row, coord.col, value)
 
   "2 Coord with identical row value" must "detect that they're on the same row" in
     forAll(coordGen, colGen) { (coord, col2) =>
@@ -59,6 +65,25 @@ class ModlTest extends AnyFlatSpec with must.Matchers with ScalaCheckPropertyChe
   "2 Coord in the same box" must "be detected as such" in
     forAll(twoCoordInSameBox) { (coord1, coord2) =>
       coord1.sameBox(coord2) mustBe (true)
+    }
+
+  "All tiles in empty game" must "have all possible values in candidates" in
+    forAll(coordGen) { coord =>
+      Game.empty.valueAt(coord) mustBe (TileValue.emptyTile)
+    }
+
+  "A empty game with solved tile" must "contain the solved value in that tile" in
+    forAll(solvedTileGen) { tile =>
+      Game.empty.replaceTile(tile).valueAt(tile.coord.row, tile.coord.col) mustBe (tile.value)
+    }
+
+  "An empty game" must "not be finished" in {
+    Game.empty.isFinished mustBe (false)
+  }
+
+  "a coordinate" must "have 20 peers" in
+    forAll(coordGen) { coord =>
+      Game.empty.peers(coord).length mustBe (20)
     }
 
 }

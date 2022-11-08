@@ -1,1 +1,6 @@
-**/target
+target/
+.vscode
+.history
+.bloop/
+.metals/
+.bsp/

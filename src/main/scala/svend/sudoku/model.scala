@@ -18,7 +18,6 @@ object Coord {
 
 sealed trait Tile {
   val coord: Coord
-  val isFinished: Boolean
   def excludeCandidates(excluded: Set[Int]): Tile = this match {
     case Solved(_, value) => this
     case Pending(coord, candidates) =>
@@ -30,12 +29,8 @@ sealed trait Tile {
 
 }
 
-case class Solved(coord: Coord, solution: Int) extends Tile {
-  val isFinished = true
-}
-case class Pending(coord: Coord, candidates: Set[Int]) extends Tile {
-  val isFinished = false
-}
+case class Solved(coord: Coord, solution: Int) extends Tile
+case class Pending(coord: Coord, candidates: Set[Int]) extends Tile
 
 object Tile {
   def solved(row: Int, col: Int, solution: Int): Tile = Solved(Coord(row, col), solution)
@@ -45,6 +40,23 @@ object Tile {
 opaque type Game = List[Tile]
 
 extension (game: Game) {
+
+  def tiles: List[Tile] = game
+  def valueAt(coord: Coord): Tile = game.filter(_.coord == coord).head
+  def valueAt(row: Int, col: Int): Tile = game.valueAt(Coord(row, col))
+
+  def replaceTile(tile: Tile): Game = game.filter(_.coord != tile.coord) :+ tile
+  def peers(of: Coord): List[Tile] = game.filter(_.coord.isPeerOf(of))
+  def pendingTiles: List[Pending] = game.flatMap {
+    case p @ Pending(coord, candidates) => Some(p)
+    case _                              => None
+  }
+  def solvedTiles: List[Solved] = game.flatMap {
+    case s @ Solved(coord, solution) => Some(s)
+    case _                           => None
+  }
+  def isFinished: Boolean = pendingTiles.isEmpty
+
   def printableString: String = {
     val border = "-" * (9 * 3 + 4) + "\n"
     val grid = for {
@@ -67,14 +79,6 @@ extension (game: Game) {
 
     grid.mkString("")
   }
-
-  def valueAt(coord: Coord): Tile = game.filter(_.coord == coord).head
-  def valueAt(row: Int, col: Int): Tile = game.valueAt(Coord(row, col))
-
-  def replaceTile(tile: Tile): Game = game.filter(_.coord != tile.coord) :+ tile
-  def peers(of: Coord): List[Tile] = game.filter(_.coord.isPeerOf(of))
-  def pendingTiles = game.filter(!_.isFinished)
-  def isFinished: Boolean = pendingTiles.isEmpty
 
 }
 

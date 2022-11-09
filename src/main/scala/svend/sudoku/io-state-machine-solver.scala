@@ -3,7 +3,9 @@ import cats.effect.IO
 import cats.effect.IOApp
 import cats.effect.kernel.Deferred
 
-// my own solution for a cats IO-based implementation
+/** My own solution for a cats IO-based implementation. We build one solver for each tile, start them all in parallel
+  * and let each solved one notify its peers that one tile value is no longer availble to them
+  */
 object IOStateSolver {
 
   trait Solver {

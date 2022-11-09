@@ -33,29 +33,55 @@ case class Solved(coord: Coord, solution: Int) extends Tile
 case class Pending(coord: Coord, candidates: Set[Int]) extends Tile
 
 object Tile {
+  val validValues = (1 to 9).toSet
   def solved(row: Int, col: Int, solution: Int): Tile = Solved(Coord(row, col), solution)
-  def unknown(coord: Coord): Tile = Pending(coord, (1 to 9).toSet)
+  def unknown(coord: Coord): Tile = Pending(coord, validValues)
 }
 
 opaque type Game = List[Tile]
 
 extension (game: Game) {
 
-  def tiles: List[Tile] = game
   def valueAt(coord: Coord): Tile = game.filter(_.coord == coord).head
   def valueAt(row: Int, col: Int): Tile = game.valueAt(Coord(row, col))
-
   def replaceTile(tile: Tile): Game = game.filter(_.coord != tile.coord) :+ tile
   def peers(of: Coord): List[Tile] = game.filter(_.coord.isPeerOf(of))
-  def pendingTiles: List[Pending] = game.flatMap {
+
+  def tiles: List[Tile] = game
+  def pendingTiles: List[Pending] = tiles.flatMap {
     case p @ Pending(coord, candidates) => Some(p)
     case _                              => None
   }
-  def solvedTiles: List[Solved] = game.flatMap {
+  def solvedTiles: List[Solved] = tiles.flatMap {
     case s @ Solved(coord, solution) => Some(s)
     case _                           => None
   }
+  def row(index: Int): List[Tile] = (0 to 8).map(valueAt(index, _)).toList
+  def rows: List[List[Tile]] = (0 to 8).map(row).toList
+  def column(index: Int): List[Tile] = (0 to 8).map(valueAt(_, index)).toList
+  def columns: List[List[Tile]] = (0 to 8).map(column).toList
+  def box(boxRow: Int, boxCol: Int): List[Tile] = for {
+    row <- (boxRow * 3 to boxRow * 3 + 2).toList
+    col <- (boxCol * 3 to boxCol * 3 + 2)
+  } yield valueAt(row, col)
+  def boxes: List[List[Tile]] = for {
+    boxRow <- List(0, 1, 2)
+    boxCol <- List(0, 1, 2)
+  } yield box(boxRow, boxCol)
+
   def isFinished: Boolean = pendingTiles.isEmpty
+  def isSolvedCorrectly: Boolean = {
+
+    def validSolvedTiles(tiles: List[Tile]): Boolean = {
+      val values = tiles.flatMap {
+        case Solved(coord, solution) => Some(solution)
+        case _                       => None
+      }
+      values.size == 9 && values.toSet == Tile.validValues
+    }
+
+    (rows ++ columns ++ boxes).forall(validSolvedTiles)
+  }
 
   def printableString: String = {
     val border = "-" * (9 * 3 + 4) + "\n"

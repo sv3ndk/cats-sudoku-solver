@@ -15,25 +15,29 @@ object IOStateSolver {
     def create(coord: Coord): IO[Solver] = {
 
       for {
-        deferredResult <- IO.deferred[Tile]
-        state <- IO.ref(Tile.unknownTile(coord))
+        deferredResult <- IO.deferred[Solved]
+        state <- IO.ref(Tile.unknown(coord))
       } yield new Solver {
 
         def remove(value: Int): IO[Unit] =
           state
             .updateAndGet(currentTile => currentTile.excludeCandidate(value))
-            .flatMap(tile =>
-              if (tile.isFinished)
-                deferredResult.complete(tile).void
-                // todo: we also have to remove our value from all peers here
-              else
+            .flatMap {
+              case solved @ Solved(_, _) =>
+                // if (tile.isFinished)
+                deferredResult.complete(solved).void
+              // todo: we also have to remove our value from all peers here
+              case _ =>
                 IO.unit
-            )
+            }
 
         def solveWith(value: Int): IO[Unit] =
           state
-            .updateAndGet(tile => Tile.known(tile.coord.row, tile.coord.col, value))
-            .flatMap(tile => deferredResult.complete(tile))
+            .modify(tile =>
+              val solved = Solved(tile.coord, value)
+              (solved, solved)
+            )
+            .flatMap(solved => deferredResult.complete(solved))
             .void
       }
 
@@ -41,13 +45,13 @@ object IOStateSolver {
   }
 
   // blocks on the solution of a solver, and dispatch it to the peer tiles when availble
-  // def dispatch(sourceSolution: Deferred[IO, Tile], peerSolvers: List[Solver]): IO[Deferred[IO, Tile]] = for {
-  //   result <- IO.deferred[Tile]
-  //   tile <- sourceSolution.get
-  //   _ <- peerSolvers.traverse(_.remove(result.v))
-  //   // ..
-  //   _ <- result.complete(tile)
-  // } yield result
+  def dispatch(sourceSolution: Deferred[IO, Solved], peerSolvers: List[Solver]): IO[Deferred[IO, Solved]] = for {
+    result <- IO.deferred[Solved]
+    tile <- sourceSolution.get
+    // _ <- peerSolvers.traverse(_.remove(result.v))
+    // ..
+    _ <- result.complete(tile)
+  } yield result
 
   def solve(game: Game): IO[Game] = {
 // from a Game instance:

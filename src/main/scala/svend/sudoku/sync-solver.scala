@@ -18,10 +18,10 @@ object SyncSolver {
         val processedGame = currentGame.pendingTiles.foldLeft(currentGame) { (gam, pending) =>
           val excludedValues = gam
             .peers(pending.coord)
-            .flatMap { tile =>
-              tile.value match {
-                case TileValue.Pending(candidates) => None
-                case TileValue.Solution(value)     => Some(value)
+            .flatMap { peer =>
+              peer match {
+                case Pending(_, candidates) => None
+                case Solved(_, value)       => Some(value)
               }
             }
             .toSet

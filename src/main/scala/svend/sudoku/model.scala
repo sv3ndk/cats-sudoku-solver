@@ -25,7 +25,7 @@ enum TileValue {
     case Pending(candidates) => false
   }
 
-  def excludeValues(excluded: Set[Int]): TileValue = this match {
+  def excludeCandidates(excluded: Set[Int]): TileValue = this match {
     case Solution(value) => this
     case Pending(candidates) =>
       val remaining = candidates -- excluded
@@ -35,22 +35,22 @@ enum TileValue {
 
 }
 object TileValue {
-  val validValues = (1 to 9).toSet
-  val emptyTile = Pending(validValues)
+  val unknownValue = Pending((1 to 9).toSet)
 }
 import TileValue.*
 
-case class Tile(coord: Coord, value: TileValue) {
+case class Tile[V <: TileValue](coord: Coord, value: V) {
   export value.isFinished
-  def excludeValues(excluded: Set[Int]): Tile = copy(value = value.excludeValues(excluded))
+  def excludeCandidates(excluded: Set[Int]): Tile = copy(value = value.excludeCandidates(excluded))
+  def excludeCandidate(excluded: Int): Tile = excludeCandidates(Set(excluded))
 }
 
 object Tile {
-  def apply(row: Int, col: Int, value: Int): Tile =
+  def known(row: Int, col: Int, value: Int): Tile =
     new Tile(Coord(row, col), Solution(value))
 
-  def unknown(coord: Coord): Tile =
-    new Tile(coord, emptyTile)
+  def unknownTile(coord: Coord): Tile =
+    new Tile(coord, unknownValue)
 }
 
 opaque type Game = List[Tile]
@@ -91,8 +91,51 @@ extension (game: Game) {
 
 object Game {
   def create(init: List[Tile]): Game =
+    // this is brittle, we should check if the value is  in range
     init.foldLeft(Game.empty) { (game, tile) => game.replaceTile(tile) }
 
-  val empty = Coord.allCoords.map(Tile.unknown)
+  val empty = Coord.allCoords.map(Tile.unknownTile)
+
+  // problem that does not necessitate back-tracking, you can always deduce the next step without ambiguity
+  val easy = Game.create(
+    List(
+      Tile.known(0, 1, 6),
+      Tile.known(0, 3, 3),
+      Tile.known(0, 6, 8),
+      Tile.known(0, 8, 4),
+      Tile.known(1, 0, 5),
+      Tile.known(1, 1, 3),
+      Tile.known(1, 2, 7),
+      Tile.known(1, 4, 9),
+      Tile.known(2, 1, 4),
+      Tile.known(2, 5, 6),
+      Tile.known(2, 6, 3),
+      Tile.known(2, 8, 7),
+      Tile.known(3, 1, 9),
+      Tile.known(3, 4, 5),
+      Tile.known(3, 5, 1),
+      Tile.known(3, 6, 2),
+      Tile.known(3, 7, 3),
+      Tile.known(3, 8, 8),
+      Tile.known(5, 0, 7),
+      Tile.known(5, 1, 1),
+      Tile.known(5, 2, 3),
+      Tile.known(5, 3, 6),
+      Tile.known(5, 4, 2),
+      Tile.known(5, 7, 4),
+      Tile.known(6, 0, 3),
+      Tile.known(6, 2, 6),
+      Tile.known(6, 3, 4),
+      Tile.known(6, 7, 1),
+      Tile.known(7, 4, 6),
+      Tile.known(7, 6, 5),
+      Tile.known(7, 7, 2),
+      Tile.known(7, 8, 3),
+      Tile.known(8, 0, 1),
+      Tile.known(8, 2, 2),
+      Tile.known(8, 5, 9),
+      Tile.known(8, 7, 8)
+    )
+  )
 
 }

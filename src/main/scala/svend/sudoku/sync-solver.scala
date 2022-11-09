@@ -3,7 +3,7 @@ package svend.sudoku
 import scala.annotation.tailrec
 
 // Naive synchronous solver implementation, simply looping through all
-// tiles over and over until they're all solved.
+// tiles over and over until they're all solved (or forever...)
 // There is no back-tracking here, the algo only moves forward when there
 // is one clear solution for a tile
 
@@ -26,11 +26,22 @@ object SyncSolver {
             }
             .toSet
 
-          gam.replaceTile(pending.excludeValues(excludedValues))
+          gam.replaceTile(pending.excludeCandidates(excludedValues))
         }
+        // we should probably check that we're making progress here...
         pass(processedGame)
       }
 
     pass(game)
+  }
+}
+
+object SyncSolverDemo {
+
+  def main(args: Array[String]): Unit = {
+    println("Sync sudoku solver")
+    println(s"solving \n${Game.easy.printableString}...")
+    val solution = SyncSolver.solve(Game.easy)
+    println(s"tada: \n${solution.printableString}")
   }
 }

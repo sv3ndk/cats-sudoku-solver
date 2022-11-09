@@ -16,10 +16,15 @@ class ModelTest extends AnyFlatSpec with must.Matchers with ScalaCheckPropertyCh
   } yield Coord(row, col)
 
   val tileValueGen = Gen.chooseNum(1, 9)
+  val twoDifferentTileValues = for {
+    v1 <- tileValueGen
+    v2 <- tileValueGen.suchThat(value => value != v1)
+  } yield (v1, v2)
+
   val solvedTileGen = for {
     coord <- coordGen
     value <- tileValueGen
-  } yield Tile(coord.row, coord.col, value)
+  } yield Tile.known(coord.row, coord.col, value)
 
   "2 Coord with identical row value" must "detect that they're on the same row" in
     forAll(coordGen, colGen) { (coord, col2) =>
@@ -69,7 +74,7 @@ class ModelTest extends AnyFlatSpec with must.Matchers with ScalaCheckPropertyCh
 
   "All tiles in empty game" must "have all possible values in candidates" in
     forAll(coordGen) { coord =>
-      Game.empty.valueAt(coord) mustBe (TileValue.emptyTile)
+      Game.empty.valueAt(coord) mustBe (TileValue.unknownValue)
     }
 
   "A empty game with solved tile" must "contain the solved value in that tile" in
@@ -86,4 +91,20 @@ class ModelTest extends AnyFlatSpec with must.Matchers with ScalaCheckPropertyCh
       Game.empty.peers(coord).length mustBe (20)
     }
 
+  "A tile with an excluded candidate" must "not contain that candidate" in
+    forAll(tileValueGen) { excluded =>
+      Tile
+        .unknownTile(Coord(0, 0))
+        .excludeCandidate(excluded) must matchPattern {
+        case Tile(_, TileValue.Pending(candidates)) if !candidates.contains(excluded) => ()
+      }
+    }
+
+  "A pending tile with 2 candidates" must "become solved when one candidate is removed" in {
+    forAll(coordGen, twoDifferentTileValues) { case (coord, (v1, v2)) =>
+      Tile(coord, TileValue.Pending(Set(v1, v2))).excludeCandidate(v1) must matchPattern {
+        case Tile(coord, TileValue.Solution(v2)) =>
+      }
+    }
+  }
 }

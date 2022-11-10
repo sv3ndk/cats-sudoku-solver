@@ -109,12 +109,27 @@ extension (game: Game) {
 }
 
 object Game {
+
+  /** creates a game with 81 tiles with those initial values, or unknown when unspecified
+    */
   def create(init: List[Tile]): Game =
-    // this is brittle, we should check if the value is  in range
-    init.foldLeft(Game.empty) { (game, tile) => game.replaceTile(tile) }
+    init.foldLeft(Game.empty) { (game, initTile) => game.replaceTile(initTile) }
 
   val empty: Game = Coord.allCoords.map(Tile.unknown)
 
+  // -------------------------------
+  // |    6    | 3       | 8     4 |
+  // | 5  3  7 |    9    |         |
+  // |    4    |       6 | 3     7 |
+  // -------------------------------
+  // |    9    |    5  1 | 2  3  8 |
+  // |         |         |         |
+  // | 7  1  3 | 6  2    |    4    |
+  // -------------------------------
+  // | 3     6 | 4       |    1    |
+  // |         |    6    | 5  2  3 |
+  // | 1     2 |       9 |    8    |
+  // -------------------------------
   // problem that does not necessitate back-tracking, you can always deduce the next step without ambiguity
   val easy = Game.create(
     List(

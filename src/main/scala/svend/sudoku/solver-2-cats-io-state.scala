@@ -15,6 +15,9 @@ import cats.effect.kernel.Deferred
   * succesful, updates its state, which then becomes available to all its peers pulling on it.
   * https://medium.com/@fqaiser94/concurrent-sudoku-solver-part-2-using-cats-effect-ref-deferred-io-race-a380a182c233
   *
+  * The part 3 of the blog series is actually a "push-based" approach, using cats queues:
+  * https://medium.com/@fqaiser94/concurrent-sudoku-solver-part-1-single-candidate-technique-domain-modelling-6c885a1e4ef3f
+  *
   * This solver can only solve easy problems, i.e. only those that never need to branch between various branches.
   */
 object IOStateSolver {
@@ -26,25 +29,33 @@ object IOStateSolver {
   }
 
   object TileSolver {
-    // just a convenient function to complete a deferred solution when a tile is solved
-    private def broadcastIfComplete(deferred: Deferred[IO, Solved]): Tile => IO[Unit] = {
-      case solved @ Solved(_, _) => deferred.complete(solved).void
-      case _                     => IO.unit
+
+    def create(tile: Tile): IO[TileSolver] = tile match {
+      case solved @ Solved(_, _)   => createSolved(solved)
+      case pending @ Pending(_, _) => createPending(pending)
     }
 
-    def create(initTile: Tile): IO[TileSolver] =
+    // fake solver for a tile that's already solved from the start
+    private def createSolved(tile: Solved): IO[TileSolver] = IO.pure(new TileSolver {
+      export tile.coord
+      def remove(candidate: Int): IO[Unit] = IO.unit
+      def solution: IO[Solved] = IO.pure(tile)
+    })
+
+    private def createPending(tile: Pending): IO[TileSolver] =
       for {
         deferredSolution <- IO.deferred[Solved]
-        // some tiles are already complete from the start
-        _ <- broadcastIfComplete(deferredSolution)(initTile)
-        tileState <- IO.ref(initTile)
+        tileState <- IO.ref[Tile](tile)
       } yield new TileSolver {
-        def coord: Coord = initTile.coord
+        def coord: Coord = tile.coord
 
         def remove(candidate: Int): IO[Unit] =
           tileState
             .updateAndGet(_.excludeCandidate(candidate))
-            .flatMap(broadcastIfComplete(deferredSolution))
+            .flatMap {
+              case solved @ Solved(_, _) => deferredSolution.complete(solved).void
+              case _                     => IO.unit
+            }
 
         // not providing the Deferred instance directly achieves a better encapsulation since
         // we are then the only componenent that can .complete() it
@@ -63,7 +74,7 @@ object IOStateSolver {
     _ <- result.complete(solved)
   } yield result
 
-  def solve(game: Game): IO[Game] = {
+  def solve(game: Game): IO[Game] =
     for {
       solvers <- game.tiles.parTraverse(TileSolver.create)
       proxiedSolutions <- solvers.parTraverse { solver =>
@@ -77,7 +88,6 @@ object IOStateSolver {
       solvedTiles <- proxiedSolutions.traverse(_.get)
     } yield Game.create(solvedTiles)
 
-  }
 }
 
 object IOStateSolverDemo extends IOApp.Simple {

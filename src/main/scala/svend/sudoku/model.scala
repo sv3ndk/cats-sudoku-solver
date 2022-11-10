@@ -45,7 +45,7 @@ extension (game: Game) {
   def valueAt(coord: Coord): Tile = game.filter(_.coord == coord).head
   def valueAt(row: Int, col: Int): Tile = game.valueAt(Coord(row, col))
   def replaceTile(tile: Tile): Game = game.filter(_.coord != tile.coord) :+ tile
-  def peers(of: Coord): List[Tile] = game.filter(_.coord.isPeerOf(of))
+  def peersOf(coord: Coord): List[Tile] = game.filter(_.coord.isPeerOf(coord))
 
   def tiles: List[Tile] = game
   def pendingTiles: List[Pending] = tiles.flatMap {

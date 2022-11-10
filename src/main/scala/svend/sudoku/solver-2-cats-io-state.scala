@@ -2,7 +2,10 @@ package svend.sudoku
 
 import cats.effect.IO
 import cats.effect.IOApp
-import cats.effect.kernel.Deferred
+import cats.effect.Deferred
+
+import cats.syntax.traverse.*
+import cats.syntax.parallel.*
 
 /** My own solution for a cats IO-based implementation.
   *
@@ -31,23 +34,23 @@ object IOStateSolver {
   object TileSolver {
 
     def create(tile: Tile): IO[TileSolver] = tile match {
-      case solved @ Solved(_, _)   => createSolved(solved)
-      case pending @ Pending(_, _) => createPending(pending)
+      case solved @ Solved(_, _)   => preSolved(solved)
+      case pending @ Pending(_, _) => createSolver(pending)
     }
 
     // fake solver for a tile that's already solved from the start
-    private def createSolved(tile: Solved): IO[TileSolver] = IO.pure(new TileSolver {
+    private def preSolved(tile: Solved): IO[TileSolver] = IO.pure(new TileSolver {
       export tile.coord
       def remove(candidate: Int): IO[Unit] = IO.unit
       def solution: IO[Solved] = IO.pure(tile)
     })
 
-    private def createPending(tile: Pending): IO[TileSolver] =
+    private def createSolver(tile: Pending): IO[TileSolver] =
       for {
         deferredSolution <- IO.deferred[Solved]
         tileState <- IO.ref[Tile](tile)
       } yield new TileSolver {
-        def coord: Coord = tile.coord
+        export tile.coord
 
         def remove(candidate: Int): IO[Unit] =
           tileState
@@ -63,16 +66,13 @@ object IOStateSolver {
       }
   }
 
-  import cats.syntax.traverse.*
-  import cats.syntax.parallel.*
-
   // blocks until that solver solution is available, then dispatches it the solvers of the peer tiles
   def proxyDispatch(upstreamSolution: IO[Solved], peerSolvers: List[TileSolver]): IO[Deferred[IO, Solved]] = for {
-    result <- IO.deferred[Solved]
+    downstreamSolution <- IO.deferred[Solved]
     solved <- upstreamSolution
     _ <- peerSolvers.parTraverse(_.remove(solved.solution))
-    _ <- result.complete(solved)
-  } yield result
+    _ <- downstreamSolution.complete(solved)
+  } yield downstreamSolution
 
   def solve(game: Game): IO[Game] =
     for {
@@ -81,7 +81,7 @@ object IOStateSolver {
         proxyDispatch(
           solver.solution,
           game
-            .peers(solver.coord)
+            .peersOf(solver.coord)
             .flatMap(peerTile => solvers.find(_.coord == peerTile.coord))
         )
       }
@@ -94,7 +94,7 @@ object IOStateSolverDemo extends IOApp.Simple {
 
   def run: IO[Unit] = for {
     problem <- IO.pure(Game.easy)
-    _ <- IO.println(s"solving \n${problem.printableString}")
+    _ <- IO.println(s"Using IO State solver on \n${problem.printableString}")
     solution <- IOStateSolver.solve(problem)
     _ <- IO.println(s"tada \n${solution.printableString}")
   } yield ()

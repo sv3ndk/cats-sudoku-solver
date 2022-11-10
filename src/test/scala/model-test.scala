@@ -96,7 +96,7 @@ class ModelTest extends AnyFlatSpec with must.Matchers with ScalaCheckPropertyCh
 
   "a coordinate" must "have 20 peers" in
     forAll(coordGen) { coord =>
-      Game.empty.peers(coord).length mustBe (20)
+      Game.empty.peersOf(coord).length mustBe (20)
     }
 
   "A tile with an excluded candidate" must "not contain that candidate" in

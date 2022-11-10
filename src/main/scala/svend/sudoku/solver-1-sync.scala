@@ -17,7 +17,7 @@ object SyncSolver {
       else {
         val processedGame = currentGame.pendingTiles.foldLeft(currentGame) { (gam, pending) =>
           val excludedValues = gam
-            .peers(pending.coord)
+            .peersOf(pending.coord)
             .flatMap { peer =>
               peer match {
                 case Pending(_, candidates) => None
@@ -37,10 +37,9 @@ object SyncSolver {
 }
 
 object SyncSolverDemo {
-
   def main(args: Array[String]): Unit = {
     println("Sync sudoku solver")
-    println(s"solving \n${Game.easy.printableString}...")
+    println(s"Using basic sync solver on \n${Game.easy.printableString}...")
     val solution = SyncSolver.solve(Game.easy)
     println(s"tada: \n${solution.printableString}")
   }
